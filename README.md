@@ -1,6 +1,6 @@
 # TransportationOne TMS – prototype (SAD CW2)
 
-High-fidelity, executable prototype (Flask + SQLite) plus the low-fidelity sketches.
+High-fidelity, executable prototype (Flask + SQLite) plus the low-fidelity wireframes.
 
 ## Run
 ```
@@ -32,7 +32,7 @@ Use `samples/RateConfirmation_AFB-48213_mismatch.pdf` to see the on-hold path.
 - `tms/db.py` – SQLite schema, connection, demo data
 - `tms/web.py` – routes and role-based access
 - `tms/templates`, `tms/static` – screens
-- `lowfi/index.html` – low-fidelity clickable sketches
+- `lowfi/SAD_CW2_lowfi.drawio` – low-fidelity wireframes (open at https://app.diagrams.net); `lowfi/lowfi_drawio.png` is the exported image
 - `tools/make_samples.py` – regenerates the sample PDFs and image
 
 ## Limitations (prototype)
