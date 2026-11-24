@@ -1,0 +1,24 @@
+{% extends "base.html" %}{% from "_macros.html" import chip %}
+{% block title %}Dispatch board{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Dispatch board</h1><span class="muted">Open loads, ordered by what needs action first</span></div>
+  <a class="btn" href="{{ url_for('web.new_load') }}">Book a load</a></div>
+<div class="grid g4">
+  <div class="card kpi"><div class="l">Open loads</div><div class="n">{{ summary.active }}</div></div>
+  <div class="card kpi {{ 'warn' if alerts }}"><div class="l">Behind schedule</div><div class="n">{{ alerts|length }}</div></div>
+  <div class="card kpi"><div class="l">Awaiting assignment</div><div class="n">{{ loads|selectattr('status','equalto','BOOKED')|list|length }}</div></div>
+  <div class="card kpi {{ 'warn' if loads|selectattr('status','equalto','ON_HOLD')|list }}"><div class="l">On hold</div><div class="n">{{ loads|selectattr('status','equalto','ON_HOLD')|list|length }}</div></div>
+</div>
+{% if alerts %}<div class="card"><h2>Alerts</h2>
+  {% for load, text in alerts %}<div class="note red" style="margin-bottom:6px"><b><a href="{{ url_for('web.load_detail', load_id=load.id) }}">{{ load.load_no }}</a></b> · {{ load.pickup_city }} to {{ load.delivery_city }} — {{ text }}</div>{% endfor %}
+</div>{% endif %}
+<div class="card"><h2>Loads</h2>
+<table><thead><tr><th>Load</th><th>Broker</th><th>Route</th><th>Pickup</th><th>Delivery</th><th>Driver</th><th>Status</th></tr></thead><tbody>
+{% for l in loads %}<tr>
+  <td><a href="{{ url_for('web.load_detail', load_id=l['id']) }}"><b>{{ l['load_no'] }}</b></a><br><span class="muted small">{{ l['broker_ref'] }}</span></td>
+  <td>{{ l['broker_name'] }}</td><td>{{ l['pickup_city'] }}<br><span class="muted small">to {{ l['delivery_city'] }}</span></td>
+  <td class="nowrap">{{ l['pickup_appt']|when }}</td><td class="nowrap">{{ l['delivery_appt']|when }}</td>
+  <td>{% if l['driver_name'] %}{{ l['driver_name'] }}{% if l['accepted'] is none %}<br><span class="chip PENDING">Awaiting reply</span>{% endif %}{% else %}<span class="muted">-</span>{% endif %}</td>
+  <td>{{ chip(l['status']) }}{% if l['status']=='ON_HOLD' %}<br><span class="small" style="color:var(--amber)">{{ l['hold_reason'] }}</span>{% endif %}</td>
+</tr>{% endfor %}</tbody></table></div>
+{% endblock %}

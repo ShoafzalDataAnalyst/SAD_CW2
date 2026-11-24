@@ -1,0 +1,89 @@
+{% extends "base.html" %}{% from "_macros.html" import chip %}
+{% block title %}{{ load.load_no }}{% endblock %}
+{% block content %}
+{% set is_disp = user['role'] == 'DISPATCHER' %}
+<div class="page-head"><div><h1>{{ load.load_no }} · {{ load.pickup_city }} to {{ load.delivery_city }}</h1>
+  <span class="muted">{{ load.broker_name }} · ref {{ load.broker_ref }}</span></div>
+  <div>{{ chip(load.status) }}{% if invoice %} <a class="btn ghost sm" href="{{ url_for('web.invoice_view', invoice_id=invoice['id']) }}">Invoice {{ invoice['invoice_no'] }}</a>{% endif %}</div></div>
+
+{% if late %}<div class="note red"><b>Behind schedule:</b> {{ late }}.</div>{% endif %}
+{% if load.status == 'ON_HOLD' %}
+<div class="note"><b>On hold – cannot be assigned.</b> {{ load.hold_reason }}
+  {% if is_disp %}<form method="post" action="{{ url_for('web.upload_rc', load_id=load.id) }}" enctype="multipart/form-data" style="display:flex;gap:10px;margin-top:10px;align-items:center">
+    <input type="file" name="rc_file" accept=".pdf" required style="max-width:340px"><button class="btn sm">Upload corrected Rate Confirmation</button></form>{% endif %}</div>
+{% endif %}
+
+<div class="grid g-main">
+<div>
+  <div class="card"><h2>Load details</h2>
+    <dl class="kv">
+      <dt>Pickup</dt><dd>{{ load.pickup_address }}, {{ load.pickup_city }}<br><span class="muted">{{ load.pickup_appt|when }}</span></dd>
+      <dt>Delivery</dt><dd>{{ load.delivery_address }}, {{ load.delivery_city }}<br><span class="muted">{{ load.delivery_appt|when }}</span></dd>
+      <dt>Freight</dt><dd>{{ load.commodity }} · {{ '{:,}'.format(load.weight_kg or 0) }} kg · {{ load.equipment_type|status }}</dd>
+      <dt>Miles</dt><dd>{{ load.loaded_miles }} loaded</dd>
+      <dt>Agreed rate</dt><dd><b>{{ load.agreed_rate|money }}</b></dd>
+      <dt>Instructions</dt><dd>{{ load.special_instructions or '-' }}</dd>
+    </dl></div>
+
+  {% if assignment %}
+  <div class="card"><h2>Assignment</h2>
+    <dl class="kv"><dt>Driver</dt><dd>{{ assignment['driver_name'] }}</dd><dt>Truck / trailer</dt><dd>{{ assignment['truck'] }} / {{ assignment['trailer'] }}</dd>
+    <dt>Driver reply</dt><dd>{% if assignment['accepted'] is none %}<span class="chip PENDING">Waiting for the driver to accept</span>{% else %}Accepted {{ assignment['decided_at']|when }}{% endif %}</dd></dl></div>
+  {% elif load.can_be_assigned() and is_disp %}
+  <div class="card"><h2>Assign driver and equipment</h2>
+    <p class="muted small" style="margin-top:0">Only available drivers and suitable equipment can be chosen. Unavailable ones show the reason.</p>
+    <form method="post" action="{{ url_for('web.assign', load_id=load.id) }}" id="assign-form">
+      <div class="grid g3">
+        <div><h3>Driver</h3>{% for c in drivers %}<label class="cand {{ 'off' if c.reason }}"><input type="radio" name="driver_id" value="{{ c.row['id'] }}" {{ 'disabled' if c.reason }}>
+          <span><b>{{ c.row['full_name'] }}</b><br><span class="small muted">{{ c.row['current_location'] }}</span></span><span class="why">{{ c.reason }}</span></label>{% endfor %}</div>
+        <div><h3>Truck</h3>{% for c in trucks %}<label class="cand {{ 'off' if c.reason }}"><input type="radio" name="truck_id" value="{{ c.row['id'] }}" {{ 'disabled' if c.reason }}>
+          <span><b>{{ c.row['unit_no'] }}</b></span><span class="why">{{ c.reason }}</span></label>{% endfor %}</div>
+        <div><h3>Trailer</h3>{% for c in trailers %}<label class="cand {{ 'off' if c.reason }}"><input type="radio" name="trailer_id" value="{{ c.row['id'] }}" {{ 'disabled' if c.reason }}>
+          <span><b>{{ c.row['unit_no'] }}</b><br><span class="small muted">{{ c.row['equipment_type']|status }} · {{ '{:,}'.format(c.row['capacity_kg']) }} kg</span></span><span class="why">{{ c.reason }}</span></label>{% endfor %}</div>
+      </div>
+      <button class="btn" style="margin-top:8px">Assign and send instructions</button></form></div>
+  {% endif %}
+
+  <div class="card"><h2>Status history</h2>
+    <ul class="timeline">{% for e in events|reverse %}<li><b>{{ e['status']|status }}</b> <span class="muted small">· {{ e['occurred_at']|when }}{% if e['full_name'] %} · {{ e['full_name'] }}{% endif %}</span>{% if e['note'] %}<br><span class="small">{{ e['note'] }}</span>{% endif %}</li>{% endfor %}</ul></div>
+
+  <div class="card"><h2>Problems and extra charges</h2>
+    {% for x in exceptions %}<div class="note red" style="margin-bottom:6px"><b>{{ x['kind']|status }}</b> · {{ x['reported_at']|when }}{% if x['full_name'] %} · {{ x['full_name'] }}{% endif %}<br>{{ x['cause'] }}{% if x['revised_eta'] %}<br>Revised ETA: {{ x['revised_eta']|when }}{% endif %}{% if x['approval_ref'] %}<br>Broker approval: {{ x['approval_ref'] }}{% endif %}</div>
+    {% else %}<p class="muted">No problems reported.</p>{% endfor %}
+    {% if charges %}<table><thead><tr><th>Charge</th><th>Amount</th><th>Evidence</th><th>Approved</th></tr></thead><tbody>{% for c in charges %}<tr><td>{{ c['kind']|status }}</td><td>{{ c['amount']|money }}</td><td>{{ c['evidence'] or '-' }}</td><td>{{ 'Yes' if c['broker_approved'] else 'No' }}</td></tr>{% endfor %}</tbody></table>{% endif %}
+    {% if is_disp and load.status not in ('COMPLETED','INVOICED') %}
+    <div class="grid g2" style="margin-top:12px">
+      <form method="post" action="{{ url_for('web.exception', load_id=load.id) }}"><h3>Report a problem</h3>
+        <div class="row r2"><div class="field"><label>Type</label><select name="kind"><option value="DELAY">Delay</option><option value="BREAKDOWN">Breakdown</option><option value="ADDRESS_CHANGE">Address change</option><option value="CARGO_REFUSED">Cargo refused</option></select></div>
+        <div class="field"><label>Revised ETA</label><input type="datetime-local" name="revised_eta"></div></div>
+        <div class="field"><label>Cause</label><input name="cause" required></div>
+        <div class="field"><label>Broker approval ref (address change)</label><input name="approval_ref" placeholder="e-mail or ticket no."></div>
+        <button class="btn sm">Record problem</button></form>
+      <form method="post" action="{{ url_for('web.charge', load_id=load.id) }}"><h3>Add extra charge</h3>
+        <div class="row r2"><div class="field"><label>Type</label><select name="kind"><option value="DETENTION">Detention</option><option value="LAYOVER">Layover</option><option value="OTHER">Other</option></select></div>
+        <div class="field"><label>Amount (USD)</label><input name="amount" type="number" step="0.01" required></div></div>
+        <div class="field"><label>Evidence</label><input name="evidence" placeholder="arrival/departure times, receipt, approval"></div>
+        <label class="check"><input type="checkbox" name="approved"> Approved by the broker</label>
+        <button class="btn sm" style="margin-top:8px">Add charge</button></form>
+    </div>{% endif %}
+  </div>
+</div>
+
+<div>
+  <div class="card"><h2>Rate Confirmation</h2>
+    {% for d in docs if d['kind'] == 'RATE_CONFIRMATION' %}
+      <div style="margin-bottom:10px"><b>Version {{ d['version'] }}</b> {{ chip(d['status']) }}<br><a href="{{ url_for('web.files', name=d['storage_path']) }}" target="_blank">{{ d['file_name'] }}</a> <span class="muted small">· {{ d['uploaded_at']|when }}</span>
+      {% for x in (d['discrepancies']|loads_json) %}<div class="small" style="color:var(--red)">{{ x.field }}: agreed {{ x.booked }}, document {{ x.rc }}</div>{% endfor %}</div>
+    {% else %}<p class="muted">None.</p>{% endfor %}</div>
+  <div class="card"><h2>Proof of delivery</h2>
+    {% for d in docs if d['kind'] == 'POD' %}
+      <div style="margin-bottom:10px">{{ chip(d['status']) }} <a href="{{ url_for('web.files', name=d['storage_path']) }}" target="_blank">{{ d['file_name'] }}</a><br><span class="muted small">{{ d['uploaded_at']|when }}</span>{% if d['remarks'] %}<br><span class="small">{{ d['remarks'] }}</span>{% endif %}</div>
+    {% else %}<p class="muted">Not uploaded yet.</p>{% endfor %}</div>
+  <div class="card"><h2>Communication log</h2>
+    {% for c in comms %}<div style="margin-bottom:8px"><span class="chip">{{ c['channel']|title }}</span> <span class="muted small">{{ c['logged_at']|when }}{% if c['full_name'] %} · {{ c['full_name'] }}{% endif %}</span><br>{{ c['message'] }}</div>{% else %}<p class="muted">No messages yet.</p>{% endfor %}
+    {% if is_disp %}<form method="post" action="{{ url_for('web.message', load_id=load.id) }}" style="margin-top:10px">
+      <div class="row r2"><div class="field"><select name="channel"><option value="MESSENGER">Messenger</option><option value="PHONE">Phone</option><option value="EMAIL">Email</option></select></div>
+      <div class="field"><select name="direction"><option value="IN">Received</option><option value="OUT">Sent</option></select></div></div>
+      <div class="field"><textarea name="message" placeholder="Copy important Messenger or phone updates here"></textarea></div><button class="btn ghost sm">Add to log</button></form>{% endif %}</div>
+</div></div>
+{% endblock %}

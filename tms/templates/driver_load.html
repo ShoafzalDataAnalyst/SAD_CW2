@@ -1,0 +1,45 @@
+{% extends "base.html" %}{% from "_macros.html" import chip %}
+{% block title %}{{ load.load_no }}{% endblock %}
+{% block content %}
+{% set flow = ['ASSIGNED','DISPATCHED','AT_PICKUP','LOADED','IN_TRANSIT','AT_DELIVERY','DELIVERED'] %}
+<p style="margin:2px 0"><a href="{{ url_for('web.driver_home') }}">&larr; My loads</a></p>
+<div class="mcard"><div style="display:flex;justify-content:space-between;align-items:center"><b>{{ load.load_no }}</b>{{ chip(load.status) }}</div>
+  <div class="route" style="margin:6px 0">{{ load.pickup_city }}<span class="arrow">&rarr;</span>{{ load.delivery_city }}</div>
+  <div class="stepper">{% for s in flow %}<i class="{{ 'done' if load.status in flow and flow.index(load.status) > loop.index0 else ('now' if s == load.status else '') }}"></i>{% endfor %}</div>
+  <div class="small muted">{{ load.status|status }}</div></div>
+
+{% if a['accepted'] is none %}
+<div class="mcard"><b>New load for you</b><p class="muted small" style="margin:4px 0 12px">Accept to see the full instructions and start the trip.</p>
+  <form method="post" action="{{ url_for('web.driver_respond', load_id=load.id) }}"><button class="bigbtn green" name="answer" value="accept">Accept load</button>
+  <div class="field" style="margin-top:12px"><label>If you refuse, say why</label><input name="reason" placeholder="e.g. hours of service"></div>
+  <button class="bigbtn red" name="answer" value="refuse">Refuse load</button></form></div>
+{% endif %}
+
+<div class="mcard"><h3>Pickup</h3><b>{{ load.pickup_address }}</b>, {{ load.pickup_city }}<br><span class="muted">{{ load.pickup_appt|when }}</span>
+  <h3 style="margin-top:12px">Delivery</h3><b>{{ load.delivery_address }}</b>, {{ load.delivery_city }}<br><span class="muted">{{ load.delivery_appt|when }}</span>
+  <h3 style="margin-top:12px">Freight</h3>{{ load.commodity }} · {{ '{:,}'.format(load.weight_kg or 0) }} kg · {{ load.loaded_miles }} miles
+  <h3 style="margin-top:12px">Instructions</h3>{{ load.special_instructions or '-' }}</div>
+
+{% if next_status %}
+<form method="post" action="{{ url_for('web.driver_status', load_id=load.id) }}"><input type="hidden" name="status" value="{{ next_status.name }}">
+  <button class="bigbtn" id="next-btn">{{ DRIVER_BUTTONS[next_status.name] }}</button></form>
+{% endif %}
+
+{% if a['accepted'] and load.status not in ('DELIVERED','INVOICED','COMPLETED') %}
+<div class="mcard" style="margin-top:12px"><h3>Running late or a problem?</h3>
+  <form method="post" action="{{ url_for('web.driver_delay', load_id=load.id) }}">
+    <div class="field"><label>What happened</label><input name="cause" placeholder="Traffic, breakdown, long wait at the dock…" required></div>
+    <div class="row r2"><div class="field"><label>Type</label><select name="kind"><option value="DELAY">Delay</option><option value="BREAKDOWN">Breakdown</option><option value="CARGO_REFUSED">Cargo refused</option></select></div>
+    <div class="field"><label>New ETA</label><input type="datetime-local" name="revised_eta"></div></div>
+    <button class="bigbtn ghost" style="padding:11px">Tell the dispatcher</button></form></div>
+{% endif %}
+
+{% if load.status in ('DELIVERED','INVOICED','COMPLETED') or load.status == 'AT_DELIVERY' %}
+<div class="mcard"><h3>Proof of delivery</h3>
+  {% if pod %}{{ chip(pod['status']) }} <a href="{{ url_for('web.files', name=pod['storage_path']) }}" target="_blank">{{ pod['file_name'] }}</a>{% if pod['remarks'] %}<p class="small" style="color:var(--red)">{{ pod['remarks'] }}</p>{% endif %}{% endif %}
+  {% if load.status in ('DELIVERED','AT_DELIVERY') and (not pod or pod['status'] in ('UNCLEAR','EXCEPTION')) %}
+  <form method="post" action="{{ url_for('web.driver_pod', load_id=load.id) }}" enctype="multipart/form-data"><div class="field"><label>Photo or PDF of the signed document</label><input type="file" name="pod_file" accept="image/*,.pdf" required></div>
+    <button class="bigbtn" style="padding:12px" id="pod-btn">Upload proof of delivery</button></form>{% endif %}</div>
+{% endif %}
+<div class="mcard"><h3>Latest updates</h3>{% for e in events %}<div class="small"><b>{{ e['status']|status }}</b> · {{ e['occurred_at']|when }}</div>{% endfor %}</div>
+{% endblock %}

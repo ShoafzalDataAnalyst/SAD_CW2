@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Audit log{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Audit log</h1><span class="muted">Who changed what, and when</span></div>
+ <form method="get" style="display:flex;gap:8px"><input name="q" value="{{ q }}" placeholder="Load no., action or text" style="width:240px"><button class="btn">Search</button></form></div>
+<div class="card"><table><thead><tr><th>Time</th><th>User</th><th>Load</th><th>Action</th><th>Detail</th></tr></thead><tbody>
+{% for r in rows %}<tr><td class="nowrap">{{ r['ts']|when }}</td><td>{{ r['full_name'] or '-' }}</td><td>{{ r['load_no'] or '-' }}</td><td><span class="chip">{{ r['action'] }}</span></td><td>{{ r['detail'] }}</td></tr>
+{% else %}<tr><td colspan="5" class="muted">No entries.</td></tr>{% endfor %}</tbody></table></div>
+{% endblock %}

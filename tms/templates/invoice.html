@@ -1,0 +1,30 @@
+{% extends "base.html" %}{% from "_macros.html" import chip %}
+{% block title %}{{ inv.invoice_no }}{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Invoice {{ inv.invoice_no }}</h1><span class="muted">{{ inv.broker_name }} · load {{ inv.load_no }} · ref {{ inv.broker_ref }}</span></div>
+  <div>{{ chip(inv.status) }}{% if overdue %} <span class="chip late">Overdue</span>{% endif %} <a class="btn ghost sm noprint" href="#" onclick="window.print();return false">Print</a></div></div>
+<div class="grid g-main"><div>
+ <div class="card"><h2>Invoice lines</h2>
+  <table><thead><tr><th>Description</th><th class="right">Amount</th></tr></thead><tbody>
+  {% for l in lines %}<tr><td>{{ l['description'] }}</td><td class="right">{{ l['amount']|money }}</td></tr>{% endfor %}
+  <tr><td class="right"><b>Total</b></td><td class="right"><b>{{ inv.total|money }}</b></td></tr></tbody></table>
+  <dl class="kv" style="margin-top:12px"><dt>Issued</dt><dd>{{ inv.issue_date|day }}</dd><dt>Due</dt><dd>{{ inv.due_date|day }}</dd><dt>Paid</dt><dd>{{ paid|money }}</dd><dt>Outstanding</dt><dd><b>{{ outstanding|money }}</b></dd></dl></div>
+ <div class="card"><h2>Supporting documents</h2>{% for d in docs %}<div><a href="{{ url_for('web.files', name=d['storage_path']) }}" target="_blank">{{ d['file_name'] }}</a> <span class="muted small">· {{ d['kind']|status }}</span></div>{% else %}<p class="muted">None verified.</p>{% endfor %}</div>
+ <div class="card"><h2>Payments</h2>
+  {% if payments %}<table><thead><tr><th>Received</th><th>Reference</th><th class="right">Amount</th></tr></thead><tbody>{% for p in payments %}<tr><td>{{ p['received_on']|day }}</td><td>{{ p['reference'] or '-' }}</td><td class="right">{{ p['amount']|money }}</td></tr>{% endfor %}</tbody></table>{% else %}<p class="muted">No payment received yet.</p>{% endif %}</div>
+</div><div class="noprint">
+ {% if user['role'] == 'BILLING' %}
+ {% if inv.status == 'DRAFT' %}<div class="card"><h2>Send the invoice</h2>
+  <form method="post" action="{{ url_for('web.send_invoice', invoice_id=inv.id) }}">
+   <label class="check" style="margin-bottom:8px"><input type="radio" name="method" value="BROKER" {{ '' if inv.factoring_default else 'checked' }}> Directly to the broker</label>
+   <label class="check" style="margin-bottom:12px"><input type="radio" name="method" value="FACTORING" {{ 'checked' if inv.factoring_default }}> Through the factoring company</label>
+   <button class="btn">Send</button></form></div>{% endif %}
+ {% if outstanding > 0 and inv.status != 'DRAFT' %}<div class="card"><h2>Record a payment</h2>
+  <form method="post" action="{{ url_for('web.payment', invoice_id=inv.id) }}">
+   <div class="field"><label>Amount (USD)</label><input name="amount" type="number" step="0.01" value="{{ outstanding }}" required></div>
+   <div class="field"><label>Received on</label><input name="received_on" type="date" value="{{ today }}"></div>
+   <div class="field"><label>Reference</label><input name="reference" placeholder="bank or remittance ref"></div><button class="btn green">Record payment</button></form></div>{% endif %}
+ {% endif %}
+ <div class="card"><a href="{{ url_for('web.load_detail', load_id=inv.load_id) }}">Open load {{ inv.load_no }}</a></div>
+</div></div>
+{% endblock %}

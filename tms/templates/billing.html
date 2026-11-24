@@ -1,0 +1,28 @@
+{% extends "base.html" %}{% from "_macros.html" import chip %}
+{% block title %}Billing{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Billing</h1><span class="muted">Check delivery documents, then invoice the verified loads</span></div></div>
+
+<div class="card"><h2>1. Proof of delivery to check</h2>
+{% if pending_pod %}<table><thead><tr><th>Load</th><th>Broker</th><th>Document</th><th>Status</th><th>Your check</th></tr></thead><tbody>
+{% for d in pending_pod %}<tr><td><a href="{{ url_for('web.load_detail', load_id=d['load_id']) }}"><b>{{ d['load_no'] }}</b></a></td><td>{{ d['broker_name'] }}</td>
+ <td><a href="{{ url_for('web.files', name=d['storage_path']) }}" target="_blank">{{ d['file_name'] }}</a></td><td>{{ chip(d['status']) }}</td>
+ <td><form method="post" action="{{ url_for('web.verify_pod', doc_id=d['id']) }}" style="display:flex;gap:6px;align-items:center">
+   <select name="outcome" style="width:190px"><option value="VERIFIED">Signed and complete</option><option value="UNCLEAR">Missing or unclear</option><option value="EXCEPTION">Damage or shortage noted</option></select>
+   <input name="remarks" placeholder="Remarks" style="width:160px"><button class="btn sm">Save</button></form></td></tr>{% endfor %}</tbody></table>
+{% else %}<p class="muted">No documents waiting.</p>{% endif %}</div>
+
+<div class="card"><h2>2. Delivered loads</h2>
+{% if ready %}<table><thead><tr><th>Load</th><th>Broker</th><th class="right">Agreed rate</th><th>Invoice readiness</th><th></th></tr></thead><tbody>
+{% for r in ready %}<tr><td><a href="{{ url_for('web.load_detail', load_id=r.load.id) }}"><b>{{ r.load.load_no }}</b></a><br><span class="small muted">{{ r.load.pickup_city }} to {{ r.load.delivery_city }}</span></td>
+ <td>{{ r.load.broker_name }}</td><td class="right">{{ r.load.agreed_rate|money }}</td>
+ <td>{% if r.reasons %}{% for x in r.reasons %}<div class="small" style="color:var(--red)">{{ x }}</div>{% endfor %}{% else %}<span class="chip VERIFIED">Ready</span>{% endif %}</td>
+ <td class="right"><form method="post" action="{{ url_for('web.make_invoice', load_id=r.load.id) }}"><button class="btn sm" {{ 'disabled' if r.reasons }}>Create invoice</button></form></td></tr>{% endfor %}</tbody></table>
+{% else %}<p class="muted">No delivered loads waiting for an invoice.</p>{% endif %}</div>
+
+<div class="card"><h2>3. Invoices and payments</h2>
+<table><thead><tr><th>Invoice</th><th>Load</th><th>Broker</th><th>Due</th><th class="right">Total</th><th class="right">Outstanding</th><th>Status</th></tr></thead><tbody>
+{% for i in invoices %}<tr><td><a href="{{ url_for('web.invoice_view', invoice_id=i.inv.id) }}"><b>{{ i.inv.invoice_no }}</b></a></td><td>{{ i.load_no }}</td><td>{{ i.broker }}</td>
+ <td>{{ i.inv.due_date|day }}{% if i.overdue %} <span class="chip late">Overdue</span>{% endif %}</td><td class="right">{{ i.inv.total|money }}</td><td class="right">{{ i.outstanding|money }}</td><td>{{ chip(i.inv.status) }}</td></tr>
+{% else %}<tr><td colspan="7" class="muted">No invoices yet.</td></tr>{% endfor %}</tbody></table></div>
+{% endblock %}

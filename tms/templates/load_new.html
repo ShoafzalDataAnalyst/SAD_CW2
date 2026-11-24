@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Book a load{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Book a load</h1>
+  <span class="muted">Step {{ step }} of 2 · {{ 'Record the agreed terms and attach the broker\'s Rate Confirmation' if step == 1 else 'Check the extracted Rate Confirmation against the agreed terms' }}</span></div></div>
+{% if step == 1 %}
+<form method="post" enctype="multipart/form-data" id="book-form">
+<input type="hidden" name="step" value="check">
+<div class="card"><h2>Agreed terms (from the negotiation)</h2>
+  <div class="row r3">
+    <div class="field"><label for="broker_id">Broker</label><select id="broker_id" name="broker_id" required>{% for b in brokers %}<option value="{{ b['id'] }}" {{ 'selected' if f.get('broker_id')|string == b['id']|string }}>{{ b['name'] }}</option>{% endfor %}</select></div>
+    <div class="field"><label for="broker_ref">Broker load / reference no.</label><input id="broker_ref" name="broker_ref" value="{{ f.get('broker_ref','') }}" required></div>
+    <div class="field"><label for="agreed_rate">Agreed rate (USD)</label><input id="agreed_rate" name="agreed_rate" type="number" step="0.01" value="{{ f.get('agreed_rate','') }}" required></div>
+  </div>
+  <div class="row r4">
+    <div class="field"><label for="pickup_city">Pickup location</label><input id="pickup_city" name="pickup_city" value="{{ f.get('pickup_city','') }}" required></div>
+    <div class="field"><label for="pickup_appt">Pickup appointment</label><input id="pickup_appt" name="pickup_appt" type="datetime-local" value="{{ f.get('pickup_appt','') }}" required></div>
+    <div class="field"><label for="delivery_city">Delivery location</label><input id="delivery_city" name="delivery_city" value="{{ f.get('delivery_city','') }}" required></div>
+    <div class="field"><label for="delivery_appt">Delivery appointment</label><input id="delivery_appt" name="delivery_appt" type="datetime-local" value="{{ f.get('delivery_appt','') }}" required></div>
+  </div>
+  <div class="row r4">
+    <div class="field"><label for="pickup_address">Pickup address</label><input id="pickup_address" name="pickup_address" value="{{ f.get('pickup_address','') }}"></div>
+    <div class="field"><label for="delivery_address">Delivery address</label><input id="delivery_address" name="delivery_address" value="{{ f.get('delivery_address','') }}"></div>
+    <div class="field"><label for="equipment_type">Equipment</label><select id="equipment_type" name="equipment_type">{% for k, v in [('DRY_VAN','Dry van'),('REEFER','Reefer'),('FLATBED','Flatbed')] %}<option value="{{ k }}" {{ 'selected' if f.get('equipment_type')==k }}>{{ v }}</option>{% endfor %}</select></div>
+    <div class="field"><label for="loaded_miles">Loaded miles</label><input id="loaded_miles" name="loaded_miles" type="number" value="{{ f.get('loaded_miles','') }}"></div>
+  </div>
+  <div class="row r3">
+    <div class="field"><label for="commodity">Commodity</label><input id="commodity" name="commodity" value="{{ f.get('commodity','') }}"></div>
+    <div class="field"><label for="weight_kg">Weight (kg)</label><input id="weight_kg" name="weight_kg" type="number" value="{{ f.get('weight_kg','') }}"></div>
+    <div class="field"><label for="special_instructions">Special instructions</label><input id="special_instructions" name="special_instructions" value="{{ f.get('special_instructions','') }}"></div>
+  </div>
+  <button type="button" class="btn ghost sm" id="demo-fill">Fill demo booking (Atlas, AFB-48213)</button>
+</div>
+<div class="card"><h2>Rate Confirmation from the broker</h2>
+  <div class="field"><label for="rc_file">PDF file</label><input id="rc_file" name="rc_file" type="file" accept="application/pdf,.pdf" required></div>
+  <p class="muted small">Sample files are in the <code>samples</code> folder: <code>RateConfirmation_AFB-48213.pdf</code> matches the demo booking; the <code>_mismatch</code> file does not.</p>
+  <button class="btn" id="extract-btn">Extract and compare</button>
+  <div class="progress" id="progress">Reading the document and extracting fields…</div>
+</div>
+</form>
+<script>
+document.getElementById('demo-fill').onclick=()=>{const v={broker_ref:'AFB-48213',agreed_rate:'2450',pickup_city:'Chicago, IL',pickup_appt:'2026-11-27T08:00',delivery_city:'Dallas, TX',delivery_appt:'2026-11-29T14:00',pickup_address:'410 Industrial Dr',delivery_address:'2100 Commerce St',loaded_miles:'967',commodity:'Packaged food',weight_kg:'18500',special_instructions:'Call 1 hour before arrival'};
+ for(const k in v)document.getElementById(k).value=v[k];document.getElementById('broker_id').value='1';document.getElementById('equipment_type').value='DRY_VAN'};
+document.getElementById('book-form').onsubmit=()=>{document.getElementById('progress').style.display='block'};
+</script>
+{% else %}
+<form method="post" id="check-form">
+{% for k in ['broker_id','broker_ref','agreed_rate','pickup_city','pickup_address','pickup_appt','delivery_city','delivery_address','delivery_appt','commodity','weight_kg','equipment_type','loaded_miles','special_instructions','file_name','stored_name'] %}
+<input type="hidden" name="{{ k }}" value="{{ f.get(k,'') }}">{% endfor %}
+{% if duplicate %}<div class="note red"><b>Possible duplicate.</b> This broker reference already exists on load {{ duplicate }}. Check it before saving.</div>{% endif %}
+<div class="card"><h2>Rate Confirmation check <span class="muted small">· {{ f['file_name'] }}</span></h2>
+  {% if diffs %}<div class="note"><b>{{ diffs|length }} difference(s) found.</b> If the extraction is wrong, correct the value and press <i>Re-check</i>. If the document really differs, save the load: it is put <b>on hold</b> until the broker sends a corrected Rate Confirmation.</div>
+  {% else %}<div class="note green"><b>The Rate Confirmation matches the agreed booking.</b> The load will be booked and ready for assignment.</div>{% endif %}
+  <table class="cmp"><thead><tr><th>Field</th><th>Agreed booking</th><th>Rate Confirmation (editable)</th><th>Result</th></tr></thead><tbody>
+  {% set booked = {'reference': f['broker_ref'], 'rate': '%.2f'|format(f['agreed_rate']|float), 'pickup_city': f['pickup_city'], 'delivery_city': f['delivery_city'], 'pickup_appt': f['pickup_appt']|replace('T',' '), 'delivery_appt': f['delivery_appt']|replace('T',' '), 'equipment': f['equipment_type']} %}
+  {% for r in rows %}<tr><td>{{ r.label }}</td><td>{{ booked[r.key] }}</td>
+    <td><input name="rc_{{ r.key }}" value="{{ f.get('rc_' + r.key, '') }}" style="padding:5px 8px"></td>
+    <td class="{{ 'good' if r.ok else 'bad' }}">{{ 'Matches' if r.ok else 'Differs' }}</td></tr>{% endfor %}
+  </tbody></table>
+  <div style="display:flex;gap:10px;margin-top:14px">
+    <button class="btn ghost" name="step" value="recheck">Re-check</button>
+    <button class="btn {{ 'green' if not diffs }}" name="step" value="save">{{ 'Save load on hold' if diffs else 'Book load' }}</button>
+    <a class="btn ghost" href="{{ url_for('web.new_load') }}">Start again</a>
+  </div>
+</div>
+</form>
+{% endif %}
+{% endblock %}

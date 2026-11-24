@@ -1,0 +1,11 @@
+{% extends "base.html" %}{% from "_macros.html" import chip %}
+{% block title %}My loads{% endblock %}
+{% block content %}
+<h1 style="margin-top:4px">My loads</h1><p class="muted" style="margin-top:0">{{ driver['current_location'] }}</p>
+{% for l in loads %}
+<a href="{{ url_for('web.driver_load', load_id=l['id']) }}" style="color:inherit;text-decoration:none"><div class="mcard">
+  <div style="display:flex;justify-content:space-between;align-items:center"><b>{{ l['load_no'] }}</b>{% if l['accepted'] is none %}<span class="chip late">Needs your answer</span>{% else %}{{ chip(l['status']) }}{% endif %}</div>
+  <div class="route" style="margin:6px 0">{{ l['pickup_city'] }}<span class="arrow">&rarr;</span>{{ l['delivery_city'] }}</div>
+  <div class="muted small">Pickup {{ l['pickup_appt']|when }} · Delivery {{ l['delivery_appt']|when }}</div></div></a>
+{% else %}<div class="mcard muted">No loads assigned to you right now.</div>{% endfor %}
+{% endblock %}

@@ -1,0 +1,11 @@
+{% extends "base.html" %}{% from "_macros.html" import chip %}
+{% block title %}All loads{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>All loads</h1><span class="muted">{{ loads|length }} load(s){% if status %} with status {{ status|status }}{% endif %}</span></div>
+  <form method="get" style="display:flex;gap:8px;width:260px"><select name="status" onchange="this.form.submit()">
+    <option value="">All statuses</option>{% for s in statuses %}<option value="{{ s.name }}" {{ 'selected' if s.name == status }}>{{ s.value }}</option>{% endfor %}</select></form></div>
+<div class="card"><table><thead><tr><th>Load</th><th>Broker</th><th>Route</th><th>Rate</th><th>Delivery</th><th>Status</th></tr></thead><tbody>
+{% for l in loads %}<tr><td><a href="{{ url_for('web.load_detail', load_id=l['id']) }}"><b>{{ l['load_no'] }}</b></a> <span class="muted small">{{ l['broker_ref'] }}</span></td>
+  <td>{{ l['broker_name'] }}</td><td>{{ l['pickup_city'] }} to {{ l['delivery_city'] }}</td><td>{{ l['agreed_rate']|money }}</td><td class="nowrap">{{ l['delivery_appt']|when }}</td><td>{{ chip(l['status']) }}</td></tr>
+{% else %}<tr><td colspan="6" class="muted">No loads match this filter.</td></tr>{% endfor %}</tbody></table></div>
+{% endblock %}

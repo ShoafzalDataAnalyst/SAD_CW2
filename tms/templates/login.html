@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Log in{% endblock %}
+{% block content %}
+<style>.main{margin:0!important;max-width:none!important;padding:0!important}</style>
+<div class="login-wrap"><div class="login-card">
+  <h1>TransportationOne</h1>
+  <p class="muted" style="margin-top:0">Transport Management System · prototype</p>
+  {% with messages = get_flashed_messages(with_categories=true) %}{% for cat, msg in messages %}<div class="flash {{ cat }}">{{ msg }}</div>{% endfor %}{% endwith %}
+  <form method="post" id="login-form">
+    <div class="field"><label for="username">User name</label><input id="username" name="username" autocomplete="username" required></div>
+    <div class="field"><label for="password">Password</label><input id="password" name="password" type="password" autocomplete="current-password" required></div>
+    <button class="btn" style="width:100%">Log in</button>
+  </form>
+  <div class="demo"><b>Demo accounts</b> (password <code>demo123</code>)<br>
+    <button type="button" data-u="dispatcher">dispatcher</button> ·
+    <button type="button" data-u="sam">sam (driver)</button> ·
+    <button type="button" data-u="billing">billing</button> ·
+    <button type="button" data-u="manager">manager</button><br>
+    <span class="muted">Other drivers: tom, luis, ana. Click a name to fill the form.</span></div>
+</div></div>
+<script>document.querySelectorAll('.demo button').forEach(b=>b.onclick=()=>{username.value=b.dataset.u;password.value='demo123';password.focus()})</script>
+{% endblock %}

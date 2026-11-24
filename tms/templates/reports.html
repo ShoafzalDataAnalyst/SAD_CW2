@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Reports{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Management report</h1><span class="muted">Operations and finance, {{ start|day }} to {{ end|day }}</span></div>
+ <form method="get" style="display:flex;gap:8px;align-items:end"><div><label>From</label><input type="date" name="from" value="{{ start }}"></div><div><label>To</label><input type="date" name="to" value="{{ end }}"></div><button class="btn">Apply</button></form></div>
+<div class="grid g4" style="margin-bottom:16px">
+ <div class="card kpi"><div class="n">{{ s.active }}</div><div class="l">Open loads</div></div>
+ <div class="card kpi"><div class="n">{{ s.completed }}</div><div class="l">Delivered or invoiced</div></div>
+ <div class="card kpi"><div class="n">{{ s.revenue|money }}</div><div class="l">Invoiced</div></div>
+ <div class="card kpi"><div class="n">{{ s.collected|money }}</div><div class="l">Collected</div></div>
+ <div class="card kpi {{ 'warn' if s.outstanding }}"><div class="n">{{ s.outstanding|money }}</div><div class="l">Outstanding</div></div>
+ <div class="card kpi {{ 'warn' if s.overdue }}"><div class="n">{{ s.overdue|length }}</div><div class="l">Overdue invoices</div></div>
+ <div class="card kpi {{ 'warn' if s.delayed }}"><div class="n">{{ s.delayed|length }}</div><div class="l">Delayed loads</div></div>
+ <div class="card kpi"><div class="n">{{ s.extra|money }}</div><div class="l">Approved extra charges</div></div></div>
+<div class="grid g2"><div class="card"><h2>Loads by broker</h2><table><thead><tr><th>Broker</th><th class="right">Loads</th><th class="right">Agreed value</th></tr></thead><tbody>
+ {% for b in s.per_broker %}<tr><td>{{ b['name'] }}</td><td class="right">{{ b['loads'] }}</td><td class="right">{{ b['value']|money }}</td></tr>{% endfor %}</tbody></table></div>
+<div class="card"><h2>Overdue invoices</h2>{% for i in s.overdue %}<div style="margin-bottom:6px"><a href="{{ url_for('web.invoice_view', invoice_id=i.inv.id) }}"><b>{{ i.inv.invoice_no }}</b></a> · {{ i.broker }} · {{ i.outstanding|money }} <span class="muted small">due {{ i.inv.due_date|day }}</span></div>{% else %}<p class="muted">None.</p>{% endfor %}</div></div>
+{% endblock %}
